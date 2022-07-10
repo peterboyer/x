@@ -1,26 +1,62 @@
 import express from "express";
-import { render, idToFunction, useX } from "./jsx-runtime";
+import { render, idToFunction, $ } from "./jsx-runtime";
 
 const app = express();
 const port = 3000;
 
-app.get("/", (_req, res) => {
+// const sleep = (milliseconds: number) =>
+// new Promise<void>((resolve) => setTimeout(() => resolve(), milliseconds));
+
+async function getPosts() {
+  // await sleep(2000);
+  return [
+    {
+      title: "abc",
+    },
+    {
+      title: "def",
+    },
+    {
+      title: "ghi",
+    },
+  ];
+}
+
+declare module "./jsx-runtime" {
+  interface $ {
+    count: number;
+  }
+}
+
+async function App() {
   // const count = useState(1);
-  const x = useX();
-  x.state("count", 10);
+  // const x = useX();
+  $.count = 10;
   const increment = () => {
-    console.log("increment!");
-    x.state("count", (v: number) => v + 1);
-    console.log(x.state("count"));
+    $.count = $.count + 1;
   };
-  const component = (
+  const decrement = () => {
+    $.count = $.count - 1;
+  };
+  const posts = await getPosts();
+  return (
     <div>
       <h1>Counter</h1>
-      <p>Count: {x.state("count")}</p>
+      <p>Count: {$.count}</p>
       <button onClick={increment}>Increment</button>
+      <button onClick={decrement}>Decrement</button>
+      <h1>Posts</h1>
+      <ul>
+        {posts.map((post) => (
+          <li>{post.title}</li>
+        ))}
+      </ul>
     </div>
   );
-  return res.send(render(component));
+}
+
+app.get("/", async (_req, res) => {
+  return res.send(await render(<App />));
 });
 
 app.get("/:id.js", (req, res) => {
@@ -30,7 +66,10 @@ app.get("/:id.js", (req, res) => {
     res.sendStatus(404);
     return;
   }
-  return res.send(fn.toString());
+  res.type("text/javascript");
+  return res.send(
+    `(${fn.toString().replace(/\b(\w+\.)(\$\.\w+)\b/g, "$2")})()`
+  );
 });
 
 app.listen(port, () => {
